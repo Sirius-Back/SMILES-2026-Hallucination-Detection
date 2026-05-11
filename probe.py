@@ -95,15 +95,18 @@ class HallucinationProbe(nn.Module):
         # ------------------------------------------------------------------
         # STUDENT: Replace or extend the training loop below.
         # ------------------------------------------------------------------
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
-
+        optimizer = torch.optim.AdamW(self.parameters(), lr=1e-3)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=500
+        )
         self.train()
-        for _ in range(200):
+        for _ in range(500):
             optimizer.zero_grad()
             logits = self(X_t)
             loss = criterion(logits, y_t)
             loss.backward()
             optimizer.step()
+            scheduler.step()
         # ------------------------------------------------------------------
 
         self.eval()

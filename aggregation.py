@@ -48,12 +48,11 @@ def aggregate(
     # Default: last real token of the final transformer layer.
     layer = hidden_states[-1]          # (seq_len, hidden_dim)
 
-    # Find the index of the last real (non-padding) token.
     real_positions = attention_mask.nonzero(as_tuple=False)  # (n_real, 1)
-    last_pos = int(real_positions[-1].item())                 # scalar index
-
+    last_pos = int(real_positions[-1].item())                 # scalar
+    
     feature = layer[last_pos]          # (hidden_dim,)
-
+    
     return feature
     # ------------------------------------------------------------------
 
@@ -85,8 +84,16 @@ def extract_geometric_features(
     # STUDENT: Replace or extend the geometric feature extraction below.
     # ------------------------------------------------------------------
 
-    # Placeholder: returns an empty tensor (no geometric features).
-    return torch.zeros(0)
+    # Норма последнего реального токена по каждому слою
+    real_positions = attention_mask.nonzero(as_tuple=False)
+    last_pos = int(real_positions[-1].item())
+
+    norms = []
+    for layer_idx in range(hidden_states.shape[0]):  # все 25 слоёв
+        token_vec = hidden_states[layer_idx, last_pos]  # (hidden_dim,)
+        norms.append(token_vec.norm().unsqueeze(0))     # scalar → (1,)
+
+    return torch.cat(norms, dim=0).float()  # (25,)
 
 
 def aggregation_and_feature_extraction(
