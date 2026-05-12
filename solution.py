@@ -50,6 +50,7 @@ from evaluate import print_summary, run_evaluation, save_predictions, save_resul
 from model import MAX_LENGTH, get_model_and_tokenizer
 from probe import HallucinationProbe
 from splitting import split_data
+from evaluate import run_evaluation
 
 # ---------------------------------------------------------------------
 
@@ -173,7 +174,13 @@ if __name__=='__main__':
     print_summary(fold_results, X.shape[1], len(X), extract_time)
     save_results(fold_results, X.shape[1], len(X), extract_time, OUTPUT_FILE)
 
-    
+    fold_probes = []
+    for idx_tr, idx_va, idx_te in splits:
+        p = HallucinationProbe()
+        p.fit(X[idx_tr], y[idx_tr])
+        if idx_va is not None:
+            p.fit_hyperparameters(X[idx_va], y[idx_va])
+        fold_probes.append(p)
 
     # ── Load test data ────────────────────────────────────────────────────────
     df_test    = pd.read_csv(TEST_FILE)
@@ -224,5 +231,21 @@ if __name__=='__main__':
     final_probe.fit(X[idx_non_test], y[idx_non_test])
 
     # ── Predict and save ────────────────────────────────────────────────────
-    save_predictions(final_probe, X_test, test_ids, PREDICTIONS_FILE)
+    #save_predictions(final_probe, X_test, test_ids, PREDICTIONS_FILE)
 
+    # ── Ensemble prediction ───────────────────────────────────────────────────────
+    all_probs = np.stack([
+        p.predict_proba(X_test)[:, 1] for p in fold_probes
+    ], axis=0)  # (5, n_test)
+
+    ensemble_probs = all_probs.mean(axis=0)  # (n_test,)
+    ensemble_preds = (ensemble_probs >= 0.5).astype(int)
+
+    import pandas as pd
+    pd.DataFrame({
+        "id": df_test.index,
+        "label": ensemble_preds
+    }).to_csv(PREDICTIONS_FILE, index=False)
+
+    print(f"Ensemble predictions saved: {len(ensemble_preds)} samples")
+    print(f"Hallucinated: {ensemble_preds.sum()} / Truthful: {(ensemble_preds==0).sum()}")

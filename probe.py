@@ -100,7 +100,7 @@ class HallucinationProbe(nn.Module):
             optimizer, T_max=500
         )
         self.train()
-        for _ in range(500):
+        for _ in range(1000):
             optimizer.zero_grad()
             logits = self(X_t)
             loss = criterion(logits, y_t)
